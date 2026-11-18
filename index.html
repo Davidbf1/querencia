@@ -80,11 +80,30 @@
     <section id="lista-de-espera" aria-labelledby="espera-titulo">
       <h2 id="espera-titulo">Lista de espera</h2>
       <div class="card">
-        <p>Querencia está en desarrollo. Muy pronto podrás apuntarte para que te avisemos cuando esté disponible.</p>
-        <div class="actions">
-          <!-- Sustituir por el enlace del formulario cuando tenga aviso de privacidad y casilla de consentimiento -->
-          <a class="btn btn-primary" aria-disabled="true">Próximamente</a>
-        </div>
+        <p>Querencia está en desarrollo. Déjanos tu correo y te avisaremos cuando puedas descargarla. Solo te escribiremos para eso.</p>
+
+        <!--
+          Configuración: pega en data-action la URL "action" del formulario de Brevo
+          (Formularios > tu formulario > Compartir > Código HTML, atributo action="https://....sibforms.com/serve/...").
+          Mientras esté vacío, el formulario se muestra desactivado como "Próximamente".
+        -->
+        <form id="waitlist" class="waitlist" method="POST" data-action="" novalidate>
+          <label for="wl-email">Tu correo electrónico</label>
+          <input id="wl-email" name="EMAIL" type="email" autocomplete="email" inputmode="email" required placeholder="nombre@ejemplo.com">
+
+          <label class="check">
+            <input id="wl-consent" name="OPT_IN" type="checkbox" value="1" required>
+            <span>Tengo 14 años o más y quiero que Querencia me avise por correo cuando la app esté disponible. He leído la <a href="aviso-legal.html#lista-de-espera">información sobre privacidad</a>.</span>
+          </label>
+
+          <!-- Campo trampa contra bots: las personas no lo ven -->
+          <input class="hp" type="text" name="email_address_check" value="" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <input type="hidden" name="locale" value="es">
+
+          <button class="btn btn-primary" type="submit">Avísame</button>
+          <p class="fine">Responsable: David (Querencia). Finalidad: avisarte del lanzamiento. Base legal: tu consentimiento. Los datos se guardan en Brevo (UE). Puedes darte de baja en cualquier correo o escribiendo a <a href="mailto:querenciapsy@gmail.com">querenciapsy@gmail.com</a>. <a href="aviso-legal.html#lista-de-espera">Más información</a>.</p>
+          <p id="wl-status" class="status" role="status" aria-live="polite"></p>
+        </form>
       </div>
     </section>
   </main>
@@ -98,5 +117,45 @@
       <p>Si estás en peligro, llama al <a href="tel:112">112</a>.</p>
     </div>
   </footer>
+  <script>
+  (function () {
+    var form = document.getElementById('waitlist');
+    if (!form) return;
+    var action = (form.getAttribute('data-action') || '').trim();
+    var status = document.getElementById('wl-status');
+    var button = form.querySelector('button[type="submit"]');
+    var email = document.getElementById('wl-email');
+    var consent = document.getElementById('wl-consent');
+
+    function say(msg, kind) { status.textContent = msg; status.className = 'status ' + (kind || ''); }
+
+    if (!action) {
+      email.disabled = true; consent.disabled = true; button.disabled = true;
+      button.textContent = 'Próximamente';
+      return;
+    }
+    form.setAttribute('action', action);
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!email.value || !email.checkValidity()) { say('Revisa tu correo electrónico.', 'error'); email.focus(); return; }
+      if (!consent.checked) { say('Marca la casilla para poder avisarte.', 'error'); consent.focus(); return; }
+      button.disabled = true;
+      say('Enviando…');
+      fetch(action, { method: 'POST', body: new FormData(form) })
+        .then(function (r) { return r.json().catch(function () { return { success: r.ok }; }); })
+        .then(function (data) {
+          if (data && data.success === false) throw new Error('rechazado');
+          form.reset();
+          say('Listo. Te hemos enviado un correo para confirmar tu suscripción: revisa también la carpeta de spam.', 'ok');
+        })
+        .catch(function () {
+          // Si el navegador bloquea la petición, se envía el formulario de forma clásica.
+          form.submit();
+        })
+        .then(function () { button.disabled = false; });
+    });
+  })();
+  </script>
 </body>
 </html>
